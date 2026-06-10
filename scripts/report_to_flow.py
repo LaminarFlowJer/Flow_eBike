@@ -13,7 +13,7 @@ Live (writes Actual_Result to Flow):
     python scripts/report_to_flow.py
 """
 from firmware.mc import MotorControllerFW
-from firmware.mc.config import TORQUE_CUT_IN_NM
+from firmware.mc.config import ASSIST_GAINS, ASSIST_LEVEL_DEFAULT, TORQUE_CUT_IN_NM
 from sil.harness import Harness, Scenario, reporter
 from sil.nodes import RiderInputModel, SimulatedHmiNode, brake_assert, pedal_step
 from sil.plant import VehicleDynamics
@@ -39,25 +39,33 @@ def brake_cut_ms(front: bool, rear: bool) -> int:
     return next(s.t_ms for s in after if s.motor_cmd_nm <= 0.5) - t_brake
 
 
-def pedal_latency_ms(t0: int = 500) -> int:
+# Response/latency are measured as rise time to 90% of steady-state target, not
+# "first non-zero" (the output ramp emits 0.04 Nm on tick 1, so first-non-zero is
+# always ~0 ms and never constrains the ramp rate the rider feels).
+def _rise_time_ms(trace, t0: int, pedal_nm: float) -> int:
+    expected = pedal_nm * ASSIST_GAINS[ASSIST_LEVEL_DEFAULT]
+    threshold = 0.90 * expected
+    after = [s for s in trace if s.t_ms >= t0]
+    return next(s.t_ms for s in after if s.motor_cmd_nm >= threshold) - t0
+
+
+def rise_time_ms(t0: int = 500) -> int:
     rider, _, harness = _fresh()
     rider.schedule(0, pedal_step(4.0))
     rider.schedule(t0, pedal_step(10.0))
     trace = harness.run(Scenario("pedal", t0 + 1500, lambda _t: None))
-    after = [s for s in trace if s.t_ms >= t0]
-    return next(s.t_ms for s in after if s.motor_cmd_nm > 0.0) - t0
+    return _rise_time_ms(trace, t0, 10.0)
 
 
-def worstcase_response_ms(n_runs: int = 20) -> int:
+def worstcase_rise_ms(n_runs: int = 20) -> int:
     worst = 0
     for _ in range(n_runs):
         rider, _, harness = _fresh()
         rider.schedule(0, pedal_step(0.0))
         t0 = 300
         rider.schedule(t0, pedal_step(10.0))
-        trace = harness.run(Scenario("pedal", t0 + 400, lambda _t: None))
-        after = [s for s in trace if s.t_ms >= t0]
-        worst = max(worst, next(s.t_ms for s in after if s.motor_cmd_nm > 0.0) - t0)
+        trace = harness.run(Scenario("pedal", t0 + 700, lambda _t: None))
+        worst = max(worst, _rise_time_ms(trace, t0, 10.0))
     return worst
 
 
@@ -100,9 +108,9 @@ def collect():
     return [
         ("ke9SaX7s9gJkpiM0", "R-UC05-04 brake cut (ms)",
          max(brake_cut_ms(True, False), brake_cut_ms(False, True))),
-        ("0CeTDZquNLJPpeI7", "SW-MC-02 latency (ms)", pedal_latency_ms()),
+        ("0CeTDZquNLJPpeI7", "SW-MC-02 rise time (ms)", rise_time_ms()),
         ("jwPPVc8Hmp0JRohP", "SW-MC-30 cut-in (Nm)", measured_cut_in_nm()),
-        ("E22F3ZHp6PFd2g6a", "R-UC05-01 response (ms)", worstcase_response_ms()),
+        ("E22F3ZHp6PFd2g6a", "R-UC05-01 rise time (ms)", worstcase_rise_ms()),
         ("aMDD1QmMOG0DD2YA", "R-UC05-02 publish rate (Hz)", rate_hz()),
         ("XdLn0ledrdphP7s1", "R-UC05-03 taper (s)",
          max(taper_s("EU", 25.0), taper_s("US_CLASS3", 32.0))),

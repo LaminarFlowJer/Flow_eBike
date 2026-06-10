@@ -40,13 +40,16 @@ def test_pedal_torque_proportional_motor_torque(harness, rider):
     assert max(s.motor_cmd_nm for s in pre) == 0.0, \
         "motor torque commanded below cut-in threshold"
 
-    # SW-MC-02: first non-zero command within 150 ms +/- 5 ms after T0
+    # SW-MC-02: rise time to 90% of steady-state target within 150 ms +/- 5 ms.
+    # (Not "first non-zero": the output ramp emits 0.04 Nm on the first tick, so
+    # first-non-zero is always ~0 ms and never constrains the ramp rate.)
     after = [s for s in trace if s.t_ms >= t0]
-    t_first = next((s.t_ms for s in after if s.motor_cmd_nm > 0.0), None)
-    assert t_first is not None, "motor never responded to pedal"
-    latency = t_first - t0
+    rise_threshold_nm = 0.90 * EXPECTED_STEADY_NM
+    t_rise = next((s.t_ms for s in after if s.motor_cmd_nm >= rise_threshold_nm), None)
+    assert t_rise is not None, "motor never reached 90% of target"
+    latency = t_rise - t0
     assert latency <= LATENCY_LIMIT_MS, \
-        f"command latency {latency} ms exceeded {LATENCY_LIMIT_MS} ms"
+        f"rise time {latency} ms exceeded {LATENCY_LIMIT_MS} ms"
 
     # Steady-state torque approaches 15 Nm (+/- 1 Nm) within 1 s
     settle_ms = t0 + 1000
