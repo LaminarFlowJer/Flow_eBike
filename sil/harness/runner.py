@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field
 from typing import Callable
 
-from firmware.mc import MotorControllerFW
+from sil.firmware.mc import MotorControllerFW
 
 from .scheduler import Scheduler
 
