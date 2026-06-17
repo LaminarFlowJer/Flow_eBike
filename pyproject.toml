@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["sil*"]
 
 [project]
 name = "ebike-mc-sil"
@@ -18,7 +19,7 @@ dev = ["pytest>=8", "ruff>=0.4", "mypy>=1.10"]
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra"
-testpaths = ["tests"]
+testpaths = ["sil/tests"]
 markers = ["uc05: tests covering UC-05 Ride with Pedal Assist"]
 
 [tool.ruff]
