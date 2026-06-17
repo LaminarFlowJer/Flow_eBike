@@ -1,5 +1,5 @@
 """Simulated HMI: assist level + region cap."""
-from firmware.mc.config import ASSIST_LEVEL_DEFAULT, REGION_CAP_KMH
+from sil.firmware.mc.config import ASSIST_LEVEL_DEFAULT, REGION_CAP_KMH
 
 
 class SimulatedHmiNode:
