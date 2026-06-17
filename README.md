@@ -1,31 +1,40 @@
-# ebike-mc-sil
+# Flow_eBike
 
-Software-in-the-loop (SIL) verification environment for the e-bike Motor Controller (MC) ECU.
+Monorepo for the e-bike program. Two top-level domains:
 
-This repo executes the UC-05 *Ride with Pedal Assist* verification plan against a pure-Python port of the v1 Teensy MC firmware. No hardware required.
-
-## Quick start
-
-```
-pip install -e .[dev]
-pytest -m uc05
-pytest tests/uc05/test_tc_uc05_04.py -v
-```
+- **`ebike/`** — on-target product code (firmware that runs on real hardware).
+- **`sil/`** — Software-in-the-Loop verification environment that runs on a host machine.
 
 ## Layout
 
 | Path | Purpose |
 |---|---|
-| `firmware/mc/` | Python port of the MC firmware |
-| `sil/harness/` | scheduler, runner, Flow reporter |
-| `sil/plant/` | motor + drivetrain, vehicle dynamics |
-| `sil/stub/` | sensor & GPIO stub |
-| `sil/nodes/` | rider input, simulated HMI |
-| `tests/uc05/` | one pytest module per UC-05 test case |
+| `ebike/firmware/mc_teensy/` | v1 Teensy on-target MC firmware (Arduino sketch) |
+| `sil/firmware/mc/` | Pure-Python port of the MC firmware |
+| `sil/harness/` | Scheduler, runner, Flow reporter |
+| `sil/plant/` | Motor + drivetrain, vehicle dynamics |
+| `sil/stub/` | Sensor & GPIO stub |
+| `sil/nodes/` | Rider input, simulated HMI |
+| `sil/tests/uc05/` | One pytest module per UC-05 test case |
+| `sil/scripts/` | Operational scripts (e.g. Flow result writeback) |
+
+## Quick start (SIL)
+
+```
+pip install -e .[dev]
+pytest -m uc05
+pytest sil/tests/uc05/test_tc_uc05_04.py -v
+```
+
+## On-target firmware
+
+The v1 Teensy MC firmware lives in `ebike/firmware/mc_teensy/`. Build with Arduino IDE + Teensyduino — see `ebike/firmware/mc_teensy/README.md`.
+
+The Python port under `sil/firmware/mc/` mirrors that sketch module-by-module so the path back to hardware stays mechanical.
 
 ## Results writeback
 
 On green CI on `main`, `sil/harness/reporter.py` updates each in-scope requirement in Flow:
 
 - `Actual_Result` ← worst-case measured value
-- `verification_status` ← `Passed` or `Failed`
+- `verification_status` is auto-computed by Flow from `Actual_Result` vs the requirement's pass/fail criteria.
